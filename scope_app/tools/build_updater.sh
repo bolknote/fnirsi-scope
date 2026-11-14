@@ -10,13 +10,13 @@ cd "$scope_root/firmware_updater"
 export GOTOOLCHAIN=go1.26.11
 export CGO_ENABLED=0
 name=fnirsi-iap
-flags=()
 host="$(go env GOOS)"
+set -- -mod=readonly -trimpath
 if [[ "$host" == windows ]]; then
   name+=.exe
-  flags=(-ldflags=-H=windowsgui)
+  set -- "$@" -ldflags=-H=windowsgui
 fi
-go build -mod=readonly -trimpath "${flags[@]}" -o "$destination/$name" .
+go build "$@" -o "$destination/$name" .
 
 go mod download
 go_root="$(go env GOROOT)"

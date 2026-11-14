@@ -120,6 +120,7 @@ jobs:
           /usr/bin/lipo "$app/Contents/MacOS/fnirsi_scope" -verify_arch "$expected"
           /usr/bin/lipo "$app/Contents/Helpers/fnirsi-iap" -verify_arch "$expected"
           "$app/Contents/Helpers/fnirsi-iap" --version
+          test -s "$app/Contents/Resources/firmware-updater-licenses.txt"
           stage="$RUNNER_TEMP/FNIRSI-Scope"
           mkdir -p "$stage" ../dist
           cp ../LICENSE ../README.md ../README.ru.md "$stage/"
@@ -139,6 +140,7 @@ jobs:
           test -x "$stage/fnirsi_scope"
           test -x "$stage/fnirsi-iap"
           "$stage/fnirsi-iap" --version
+          test -s "$stage/licenses/firmware-updater-licenses.txt"
           ldd "$stage/fnirsi_scope" | tee "$RUNNER_TEMP/linux-deps.txt"
           if grep -q 'not found' "$RUNNER_TEMP/linux-deps.txt"; then exit 1; fi
           cp ../LICENSE ../README.md ../README.ru.md "$stage/"

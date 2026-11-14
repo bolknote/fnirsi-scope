@@ -2,7 +2,7 @@
 
 English · [Русский](README.ru.md)
 
-FNIRSI Scope is a desktop app for the **FNIRSI 2C53T** oscilloscope. It shows both channels over USB, measures the waveform, captures a series of triggered frames, and lets you overlay a saved frame on another one. The app runs on macOS, Linux and Windows. USB control requires the **r6j** firmware modification in this repository.
+FNIRSI Scope is a desktop app for the **FNIRSI 2C53T** oscilloscope. It shows both channels over USB, measures the waveform, captures a series of triggered frames, and lets you overlay a saved frame on another one. The app runs on macOS, Linux and Windows. You can update from the factory firmware in the app. Live viewing and control require the **r6j** firmware modification in this repository.
 
 This is an independent community project by Evgeny Stepanischev.
 
@@ -45,7 +45,15 @@ python3.13 -m venv .venv
 
 The result is `firmware_mod/r6j/build/APP_2C53T_V1.2.0_RU_REMOTE_r6j.bin`. The script prints its SHA-256 and writes a local `manifest.json` with the applied changes. The patch adds USB control, Russian menus, CSV export on the instrument, and a way to interrupt zero calibration.
 
-**Install on Windows 10/11.** Charge the scope, turn it off, connect the USB data cable, then hold **MENU** while turning it on. Open the **IAP** drive, copy the generated `.bin` file to its root, and wait for success or the instrument to restart. Keep the cable and power connected until the update finishes. Save the original download for recovery. FNIRSI recommends Windows for firmware updates. [Manufacturer instructions](https://www.fnirsi.com/pages/manuals-firmwares)
+## Install firmware from the app
+
+1. Charge the scope and connect it with a USB data cable. Turn it off, then hold **MENU** while turning it on to enter **IAP**. This is the factory bootloader and works before any modification has been installed.
+2. Open **Обновление прошивки** (Firmware update) in the app toolbar. Pick the `.bin` file, then click **Проверить загрузчик** (Check bootloader).
+3. Click **Записать прошивку** (Write firmware) once the bootloader is ready. Approve the system's administrator prompt, then leave the app open and the cable connected. When the bootloader reports **SUCCESS**, restart the scope and check its version. If all blocks were sent without a reply, check the scope's screen and version before trying again.
+
+The updater accepts the official 2C53T V1.2.0 image and r6j. If a local r6j build has a different checksum, keep its generated `manifest.json` alongside the `.bin`. The app checks the file and identifies the factory IAP disk before writing.
+
+On Linux, the updater requires `pkexec` (install with `sudo apt install pkexec` on Ubuntu) and a desktop Polkit authentication agent. On Windows, IAP must use the built-in USB mass-storage driver. If you assigned WinUSB in Zadig and the IAP drive no longer appears, restore the Windows mass-storage driver for the device in IAP mode first. FNIRSI also provides its [Windows update instructions](https://www.fnirsi.com/pages/manuals-firmwares).
 
 ## Take a measurement
 
@@ -61,7 +69,7 @@ The **Калибровать** (Calibrate) button in **Сигнал** runs zero 
 
 ## Build and release the desktop app
 
-Use [Flutter 3.41.9](https://docs.flutter.dev/install/archive) and the desktop tools for your platform. From `scope_app`:
+Use [Flutter 3.41.9](https://docs.flutter.dev/install/archive), Go 1.26.11 for the firmware helper, and the desktop tools for your platform. From `scope_app`:
 
 ```sh
 flutter pub get --enforce-lockfile
@@ -70,8 +78,8 @@ flutter test --no-pub
 ```
 
 - **macOS.** Install Xcode, CocoaPods and libusb (`brew install libusb`), then run `bash tools/build_macos.sh`.
-- **Linux.** Install the [Flutter Linux build dependencies](https://docs.flutter.dev/platform-integration/linux/setup) and libusb, then run `flutter build linux --release`.
-- **Windows.** Install [Visual Studio with Desktop development with C++](https://docs.flutter.dev/platform-integration/windows/setup). Set `LIBUSB_DLL` to the full path of the x64 `libusb-1.0.dll`, then run `flutter build windows --release`.
+- **Linux.** Install the [Flutter Linux build dependencies](https://docs.flutter.dev/platform-integration/linux/setup) and libusb. Run `bash tools/build_updater.sh` before `flutter build linux --release`.
+- **Windows.** Install [Visual Studio with Desktop development with C++](https://docs.flutter.dev/platform-integration/windows/setup). Run `bash tools/build_updater.sh` in Git Bash. Set `LIBUSB_DLL` to the full path of the x64 `libusb-1.0.dll`, then run `flutter build windows --release`.
 
 Push a new tag such as `v0.2.0` to publish a release. The [Desktop release workflow](.github/workflows/release.yml) builds all four packages and publishes them with SHA-256 checksums when every build passes. You can also run the workflow from the **Actions** tab to try a build before tagging.
 

@@ -12,6 +12,7 @@ import 'scope/measurements.dart';
 import 'scope/protocol.dart';
 import 'scope/recording.dart';
 import 'scope/usb.dart';
+import 'ui/firmware_update_dialog.dart';
 import 'ui/waveform.dart';
 
 void main() => runApp(const ScopeApp());
@@ -124,6 +125,19 @@ class _ScopeWindowState extends State<ScopeWindow> {
     if (mounted && c.settings != null) {
       setState(() => selected = c.settings!.triggerChannel - 1);
     }
+  }
+
+  Future<void> _updateFirmware() async {
+    if (c.connected) {
+      await c.disconnect();
+      if (c.connected) return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const FirmwareUpdateDialog(),
+    );
   }
 
   void say(String text) {
@@ -424,6 +438,11 @@ class _ScopeWindowState extends State<ScopeWindow> {
           icon: c.connected ? Icons.usb_off : Icons.usb,
         ),
         const SizedBox(width: 7),
+        IconButton(
+          tooltip: 'Обновление прошивки',
+          onPressed: c.busy || c.calibrating ? null : _updateFirmware,
+          icon: const Icon(Icons.system_update_alt, size: 17),
+        ),
         PopupMenuButton<_FileAction>(
           tooltip: 'Опыт',
           enabled: !fileBusy,

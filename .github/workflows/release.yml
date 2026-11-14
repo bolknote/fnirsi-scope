@@ -56,6 +56,21 @@ jobs:
           channel: stable
           architecture: ${{ matrix.arch }}
 
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.11'
+          cache-dependency-path: scope_app/firmware_updater/go.sum
+
+      - name: Check the firmware updater
+        working-directory: scope_app/firmware_updater
+        run: go test -mod=readonly ./...
+
+      - name: Build the firmware updater
+        if: runner.os != 'macOS'
+        working-directory: scope_app
+        shell: bash
+        run: bash tools/build_updater.sh
+
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
@@ -103,6 +118,8 @@ jobs:
           expected=arm64
           if [[ "$TARGET" == macos-x64 ]]; then expected=x86_64; fi
           /usr/bin/lipo "$app/Contents/MacOS/fnirsi_scope" -verify_arch "$expected"
+          /usr/bin/lipo "$app/Contents/Helpers/fnirsi-iap" -verify_arch "$expected"
+          "$app/Contents/Helpers/fnirsi-iap" --version
           stage="$RUNNER_TEMP/FNIRSI-Scope"
           mkdir -p "$stage" ../dist
           cp ../LICENSE ../README.md ../README.ru.md "$stage/"
@@ -120,6 +137,8 @@ jobs:
           mkdir -p "$stage" ../dist
           cp -a build/linux/x64/release/bundle/. "$stage/"
           test -x "$stage/fnirsi_scope"
+          test -x "$stage/fnirsi-iap"
+          "$stage/fnirsi-iap" --version
           ldd "$stage/fnirsi_scope" | tee "$RUNNER_TEMP/linux-deps.txt"
           if grep -q 'not found' "$RUNNER_TEMP/linux-deps.txt"; then exit 1; fi
           cp ../LICENSE ../README.md ../README.ru.md "$stage/"
@@ -154,7 +173,7 @@ jobs:
             throw 'Flutter build failed'
           }
           $bundle = 'build/windows/x64/runner/Release'
-          foreach ($entry in 'fnirsi_scope.exe', 'libusb-1.0.dll', 'flutter_windows.dll', 'data/app.so') {
+          foreach ($entry in 'fnirsi_scope.exe', 'fnirsi-iap.exe', 'licenses/firmware-updater-licenses.txt', 'libusb-1.0.dll', 'flutter_windows.dll', 'data/app.so') {
             if (!(Test-Path -LiteralPath (Join-Path $bundle $entry))) { throw "Build output missing $entry" }
           }
           $stage = Join-Path $env:RUNNER_TEMP 'FNIRSI-Scope'

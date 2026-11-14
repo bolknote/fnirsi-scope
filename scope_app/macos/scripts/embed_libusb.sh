@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Bundle the matching system libusb so the sandboxed app can load it. A
+# Bundle the matching system libusb so the app can load it. A
 # universal dylib can be provided for a universal build via LIBUSB_DYLIB.
 source_file="${LIBUSB_DYLIB:-}"
 if [ -z "$source_file" ]; then
@@ -31,3 +31,13 @@ license_dir="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/licenses/libus
 mkdir -p "$license_dir"
 cp "$PROJECT_DIR/../third_party/libusb/COPYING" "$license_dir/COPYING"
 cp "$PROJECT_DIR/../third_party/libusb/README.md" "$license_dir/README.md"
+
+updater="$PROJECT_DIR/../build/firmware_updater/fnirsi-iap"
+if [ -f "$updater" ]; then
+  helpers="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+  mkdir -p "$helpers"
+  cp "$updater" "$helpers/fnirsi-iap"
+  /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" --timestamp=none "$helpers/fnirsi-iap"
+  cp "$PROJECT_DIR/../build/firmware_updater/firmware-updater-licenses.txt" \
+    "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/firmware-updater-licenses.txt"
+fi

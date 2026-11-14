@@ -11,9 +11,10 @@ SOURCE_FOLDERS = {'.github', 'firmware_mod', 'scope_app'}
 ROOT_FILES = {'.gitignore', '.gitattributes', 'LICENSE', 'README.md', 'README.ru.md'}
 LOCAL_FOLDERS = {'build', 'dist', 'input', 'dumps', 'captures', 'Original', 'ephemeral'}
 TEXT_EXTENSIONS = {
-    '.c', '.cc', '.cmake', '.cpp', '.entitlements', '.h', '.json', '.lock',
+    '.c', '.cc', '.cmake', '.cpp', '.entitlements', '.go', '.h', '.json', '.lock',
     '.manifest', '.md', '.plist', '.py', '.rc', '.s', '.sh', '.swift', '.svg',
     '.txt', '.xcconfig', '.xcsettings', '.xcscheme', '.yaml', '.yml', '.dart',
+    '.mod', '.sum',
 }
 TEXT_FILES = {
     '.gitignore', '.gitattributes', '.metadata', 'LICENSE', 'COPYING',

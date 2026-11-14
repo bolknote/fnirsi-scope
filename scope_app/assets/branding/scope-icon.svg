@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#304c45"/>
+      <stop offset="1" stop-color="#182b29"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#142523"/>
+      <stop offset="1" stop-color="#0b1819"/>
+    </linearGradient>
+    <clipPath id="screen-clip"><rect x="145" y="176" width="734" height="672" rx="86"/></clipPath>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="214" fill="url(#body)"/>
+  <rect x="74" y="74" width="876" height="876" rx="204" fill="none" stroke="#779e91" stroke-opacity=".22" stroke-width="12"/>
+  <rect x="145" y="176" width="734" height="672" rx="86" fill="url(#screen)" stroke="#86b1a1" stroke-opacity=".22" stroke-width="12"/>
+  <g clip-path="url(#screen-clip)" fill="none" stroke="#a0c7b6" stroke-opacity=".12" stroke-width="5">
+    <path d="M250 176v672 M355 176v672 M460 176v672 M565 176v672 M670 176v672 M775 176v672"/>
+    <path d="M145 288h734 M145 400h734 M145 512h734 M145 624h734 M145 736h734"/>
+  </g>
+  <path d="M190 438h112V316h116v122h107V290h122v148h187" fill="none" stroke="#f5d374" stroke-width="47" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M190 690h93v-91h121v91h114V561h122v129h194" fill="none" stroke="#79cce5" stroke-width="47" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

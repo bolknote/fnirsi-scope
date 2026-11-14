@@ -1,0 +1,205 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+  LIBUSB_VERSION: '1.0.30'
+  LIBUSB_SOURCE_SHA256: fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf
+  LIBUSB_WINDOWS_SHA256: 7fb1dfec805b97983763d7d0ae244320da12add1003d4249c96cc4d586398c79
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15, target: macos-arm64, arch: arm64}
+          - {runner: macos-15-intel, target: macos-x64, arch: x64}
+          - {runner: ubuntu-24.04, target: linux-x64, arch: x64}
+          - {runner: windows-2025, target: windows-x64, arch: x64}
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set package version and check source files
+        shell: bash
+        run: |
+          python .github/scripts/check_sources.py
+          if [[ "${GITHUB_REF_TYPE}" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          else
+            version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' scope_app/pubspec.yaml)"
+            [[ -n "$version" ]]
+          fi
+          printf 'APP_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: ${{ matrix.arch }}
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libusb-1.0-0 libstdc++-12-dev
+
+      - name: Resolve locked Flutter dependencies
+        working-directory: scope_app
+        run: flutter pub get --enforce-lockfile
+
+      - name: Analyze and test
+        if: runner.os == 'Linux'
+        working-directory: scope_app
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub
+          python -B tools/test_verify_r6j_device.py
+
+      - name: Build macOS libusb
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          archive="libusb-${LIBUSB_VERSION}.tar.bz2"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/$archive"
+          printf '%s  %s\n' "$LIBUSB_SOURCE_SHA256" "$RUNNER_TEMP/$archive" | shasum -a 256 -c
+          tar -xf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/libusb-$LIBUSB_VERSION"
+          export MACOSX_DEPLOYMENT_TARGET=12.0
+          ./configure --disable-static --disable-dependency-tracking \
+            --prefix="$RUNNER_TEMP/libusb-install" ac_cv_func_pipe2=no
+          make -j 3
+          make install
+          printf 'LIBUSB_DYLIB=%s\n' "$RUNNER_TEMP/libusb-install/lib/libusb-1.0.dylib" >> "$GITHUB_ENV"
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: scope_app
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          bash tools/build_macos.sh --no-pub --build-name="$APP_VERSION"
+          app="build/macos/Build/Products/Release/fnirsi_scope.app"
+          expected=arm64
+          if [[ "$TARGET" == macos-x64 ]]; then expected=x86_64; fi
+          lipo -verify_arch "$expected" "$app/Contents/MacOS/fnirsi_scope"
+          stage="$RUNNER_TEMP/FNIRSI-Scope"
+          mkdir -p "$stage" ../dist
+          cp ../LICENSE ../README.md ../README.ru.md "$stage/"
+          cp third_party/flutter/LICENSE "$stage/LICENSE-Flutter.txt"
+          ditto "$app" "$stage/fnirsi_scope.app"
+          ditto -c -k --sequesterRsrc --keepParent "$stage" "../dist/FNIRSI-Scope-v${APP_VERSION}-$TARGET.zip"
+
+      - name: Package Linux app
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: scope_app
+        run: |
+          flutter build linux --release --no-pub --build-name="$APP_VERSION"
+          stage="$RUNNER_TEMP/FNIRSI-Scope"
+          mkdir -p "$stage" ../dist
+          cp -a build/linux/x64/release/bundle/. "$stage/"
+          test -x "$stage/fnirsi_scope"
+          ldd "$stage/fnirsi_scope" | tee "$RUNNER_TEMP/linux-deps.txt"
+          if grep -q 'not found' "$RUNNER_TEMP/linux-deps.txt"; then exit 1; fi
+          cp ../LICENSE ../README.md ../README.ru.md "$stage/"
+          cp third_party/flutter/LICENSE "$stage/LICENSE-Flutter.txt"
+          tar -czf "../dist/FNIRSI-Scope-v${APP_VERSION}-linux-x64.tar.gz" -C "$RUNNER_TEMP" FNIRSI-Scope
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: scope_app
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = "libusb-${env:LIBUSB_VERSION}.7z"
+          $input = Join-Path $env:RUNNER_TEMP $archive
+          Invoke-WebRequest -Uri "https://github.com/libusb/libusb/releases/download/v${env:LIBUSB_VERSION}/$archive" -OutFile $input
+          if ((Get-FileHash $input -Algorithm SHA256).Hash -ine $env:LIBUSB_WINDOWS_SHA256) {
+            throw 'libusb Windows SHA-256 mismatch'
+          }
+          $usb = Join-Path $env:RUNNER_TEMP 'libusb'
+          & "$env:ProgramFiles\7-Zip\7z.exe" x $input "-o$usb" 'VS2022/MS64/dll/libusb-1.0.dll' -y
+          if ($LASTEXITCODE -ne 0) { throw 'Could not unpack the libusb DLL' }
+          $env:LIBUSB_DLL = Join-Path $usb 'VS2022/MS64/dll/libusb-1.0.dll'
+          if (!(Test-Path -LiteralPath $env:LIBUSB_DLL)) { throw 'libusb DLL missing' }
+          flutter build windows --release --no-pub "--build-name=$env:APP_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Flutter build failed' }
+          $bundle = 'build/windows/x64/runner/Release'
+          foreach ($entry in 'fnirsi_scope.exe', 'libusb-1.0.dll', 'flutter_windows.dll', 'data/app.so') {
+            if (!(Test-Path -LiteralPath (Join-Path $bundle $entry))) { throw "Build output missing $entry" }
+          }
+          $stage = Join-Path $env:RUNNER_TEMP 'FNIRSI-Scope'
+          New-Item -ItemType Directory -Force -Path $stage, "$stage/licenses/libusb", '../dist' | Out-Null
+          Copy-Item -Path "$bundle/*" -Destination $stage -Recurse
+          Copy-Item -Path '../LICENSE', '../README.md', '../README.ru.md' -Destination $stage
+          Copy-Item -LiteralPath 'third_party/flutter/LICENSE' -Destination "$stage/LICENSE-Flutter.txt"
+          Copy-Item -Path 'third_party/libusb/COPYING', 'third_party/libusb/README.md' -Destination "$stage/licenses/libusb"
+          Compress-Archive -LiteralPath $stage -DestinationPath "../dist/FNIRSI-Scope-v${env:APP_VERSION}-windows-x64.zip"
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ matrix.target }}
+          path: dist/FNIRSI-Scope-v*
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    name: Publish release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Check release assets and add corresponding libusb source
+        shell: bash
+        working-directory: dist
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for name in macos-arm64.zip macos-x64.zip linux-x64.tar.gz windows-x64.zip; do
+            test -s "FNIRSI-Scope-v${version}-$name"
+          done
+          [[ "$(find . -type f | wc -l | tr -d ' ')" == 4 ]]
+          archive="libusb-${LIBUSB_VERSION}.tar.bz2"
+          curl --fail --location --retry 3 --output "$archive" \
+            "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/$archive"
+          printf '%s  %s\n' "$LIBUSB_SOURCE_SHA256" "$archive" | sha256sum -c
+          sha256sum "FNIRSI-Scope-v${version}-"* "$archive" > SHA256SUMS.txt
+
+      - name: Create GitHub release
+        working-directory: dist
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" FNIRSI-Scope-v* "libusb-${LIBUSB_VERSION}.tar.bz2" SHA256SUMS.txt \
+            --verify-tag --title "FNIRSI Scope $GITHUB_REF_NAME" --generate-notes \
+            --notes "Desktop downloads for macOS, Linux and Windows. See the README for USB setup and how to build the device firmware locally from FNIRSI's official 2C53T 1.2.0 download."

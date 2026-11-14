@@ -110,7 +110,9 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 # Optional build-time DLL embedding. Supply an official libusb build for the
 # target architecture. Without it the executable can still use PATH.
 if(DEFINED ENV{LIBUSB_DLL} AND EXISTS "$ENV{LIBUSB_DLL}")
-  install(FILES "$ENV{LIBUSB_DLL}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+  # The generated cmake_install script requires forward slashes in paths.
+  file(TO_CMAKE_PATH "$ENV{LIBUSB_DLL}" LIBUSB_DLL_PATH)
+  install(FILES "${LIBUSB_DLL_PATH}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/libusb-1.0.dll")
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libusb-1.0.dll" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 else()

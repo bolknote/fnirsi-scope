@@ -102,7 +102,7 @@ jobs:
           app="build/macos/Build/Products/Release/fnirsi_scope.app"
           expected=arm64
           if [[ "$TARGET" == macos-x64 ]]; then expected=x86_64; fi
-          lipo -verify_arch "$expected" "$app/Contents/MacOS/fnirsi_scope"
+          /usr/bin/lipo "$app/Contents/MacOS/fnirsi_scope" -verify_arch "$expected"
           stage="$RUNNER_TEMP/FNIRSI-Scope"
           mkdir -p "$stage" ../dist
           cp ../LICENSE ../README.md ../README.ru.md "$stage/"
@@ -133,18 +133,26 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $archive = "libusb-${env:LIBUSB_VERSION}.7z"
-          $input = Join-Path $env:RUNNER_TEMP $archive
-          Invoke-WebRequest -Uri "https://github.com/libusb/libusb/releases/download/v${env:LIBUSB_VERSION}/$archive" -OutFile $input
-          if ((Get-FileHash $input -Algorithm SHA256).Hash -ine $env:LIBUSB_WINDOWS_SHA256) {
+          $archivePath = Join-Path $env:RUNNER_TEMP $archive
+          Invoke-WebRequest -Uri "https://github.com/libusb/libusb/releases/download/v${env:LIBUSB_VERSION}/$archive" -OutFile $archivePath
+          if ((Get-FileHash $archivePath -Algorithm SHA256).Hash -ine $env:LIBUSB_WINDOWS_SHA256) {
             throw 'libusb Windows SHA-256 mismatch'
           }
           $usb = Join-Path $env:RUNNER_TEMP 'libusb'
-          & "$env:ProgramFiles\7-Zip\7z.exe" x $input "-o$usb" 'VS2022/MS64/dll/libusb-1.0.dll' -y
+          & "$env:ProgramFiles\7-Zip\7z.exe" x $archivePath "-o$usb" 'VS2022/MS64/dll/libusb-1.0.dll' -y
           if ($LASTEXITCODE -ne 0) { throw 'Could not unpack the libusb DLL' }
           $env:LIBUSB_DLL = Join-Path $usb 'VS2022/MS64/dll/libusb-1.0.dll'
           if (!(Test-Path -LiteralPath $env:LIBUSB_DLL)) { throw 'libusb DLL missing' }
           flutter build windows --release --no-pub "--build-name=$env:APP_VERSION"
-          if ($LASTEXITCODE -ne 0) { throw 'Flutter build failed' }
+          if ($LASTEXITCODE -ne 0) {
+            $cache = Get-Content 'build/windows/x64/CMakeCache.txt' -ErrorAction SilentlyContinue
+            $cmakeSetting = $cache | Select-String '^CMAKE_COMMAND:INTERNAL=(.+)$'
+            if ($cmakeSetting) {
+              $cmake = $cmakeSetting.Matches[0].Groups[1].Value
+              & $cmake --install build/windows/x64 --config Release
+            }
+            throw 'Flutter build failed'
+          }
           $bundle = 'build/windows/x64/runner/Release'
           foreach ($entry in 'fnirsi_scope.exe', 'libusb-1.0.dll', 'flutter_windows.dll', 'data/app.so') {
             if (!(Test-Path -LiteralPath (Join-Path $bundle $entry))) { throw "Build output missing $entry" }

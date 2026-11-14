@@ -14,7 +14,7 @@ if [ -z "$source_file" ] || [ ! -f "$source_file" ]; then
   exit 1
 fi
 for arch in ${ARCHS:-}; do
-  if ! /usr/bin/lipo -verify_arch "$arch" "$source_file"; then
+  if ! /usr/bin/lipo "$source_file" -verify_arch "$arch"; then
     echo "error: libusb does not contain architecture $arch; provide a compatible or universal LIBUSB_DYLIB." >&2
     exit 1
   fi

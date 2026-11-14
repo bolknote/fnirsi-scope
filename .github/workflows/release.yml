@@ -177,8 +177,9 @@ jobs:
             if (!(Test-Path -LiteralPath (Join-Path $bundle $entry))) { throw "Build output missing $entry" }
           }
           $stage = Join-Path $env:RUNNER_TEMP 'FNIRSI-Scope'
-          New-Item -ItemType Directory -Force -Path $stage, "$stage/licenses/libusb", '../dist' | Out-Null
+          New-Item -ItemType Directory -Force -Path $stage, '../dist' | Out-Null
           Copy-Item -Path "$bundle/*" -Destination $stage -Recurse
+          New-Item -ItemType Directory -Force -Path "$stage/licenses/libusb" | Out-Null
           Copy-Item -Path '../LICENSE', '../README.md', '../README.ru.md' -Destination $stage
           Copy-Item -LiteralPath 'third_party/flutter/LICENSE' -Destination "$stage/LICENSE-Flutter.txt"
           Copy-Item -Path 'third_party/libusb/COPYING', 'third_party/libusb/README.md' -Destination "$stage/licenses/libusb"

@@ -438,14 +438,21 @@ class _ScopeWindowState extends State<ScopeWindow> {
           icon: c.connected ? Icons.usb_off : Icons.usb,
         ),
         const SizedBox(width: 7),
-        Tooltip(
-          message: 'Обновление прошивки',
-          child: _button(
-            'Прошивка…',
-            c.busy || c.calibrating ? null : _updateFirmware,
-            icon: Icons.system_update_alt,
+        if (MediaQuery.sizeOf(context).width >= 900)
+          Tooltip(
+            message: 'Обновление прошивки',
+            child: _button(
+              'Прошивка…',
+              c.busy || c.calibrating ? null : _updateFirmware,
+              icon: Icons.system_update_alt,
+            ),
+          )
+        else
+          IconButton(
+            tooltip: 'Обновление прошивки',
+            onPressed: c.busy || c.calibrating ? null : _updateFirmware,
+            icon: const Icon(Icons.system_update_alt, size: 17),
           ),
-        ),
         PopupMenuButton<_FileAction>(
           tooltip: 'Опыт',
           enabled: !fileBusy,

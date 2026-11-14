@@ -48,7 +48,7 @@ The result is `firmware_mod/r6j/build/APP_2C53T_V1.2.0_RU_REMOTE_r6j.bin`. The s
 ## Install firmware from the app
 
 1. Charge the scope and connect it with a USB data cable. Turn it off, then hold **MENU** while turning it on to enter **IAP**. This is the factory bootloader and works before any modification has been installed.
-2. Click **Прошивка…** (Firmware) in the app toolbar. Pick the `.bin` file, then click **Проверить загрузчик** (Check bootloader).
+2. Click **Прошивка…** (Firmware) in the app toolbar. In a narrow window, look for the update icon next to the USB button. Pick the `.bin` file, then click **Проверить загрузчик** (Check bootloader).
 3. Click **Записать прошивку** (Write firmware) once the bootloader is ready. Approve the system's administrator prompt, then leave the app open and the cable connected. When the bootloader reports **SUCCESS**, restart the scope and check its version. If all blocks were sent without a reply, check the scope's screen and version before trying again.
 
 The updater accepts the official 2C53T V1.2.0 image and r6j. If a local r6j build has a different checksum, keep its generated `manifest.json` alongside the `.bin`. The app checks the file and identifies the factory IAP disk before writing.
